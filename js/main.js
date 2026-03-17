@@ -8,6 +8,20 @@ let lastFrame = 0;
 let lastUIUpdate = 0;
 let lastAutoSave = 0;
 let running = true;
+let hintHidden = false;
+
+function showSaveIndicator() {
+  const el = document.getElementById('save-indicator');
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 1500);
+}
+
+function hideHint() {
+  if (hintHidden) return;
+  hintHidden = true;
+  const el = document.getElementById('hint');
+  if (el) el.classList.add('hidden');
+}
 
 function init() {
   const canvas = document.getElementById('world');
@@ -15,6 +29,7 @@ function init() {
 
   if (saved) {
     game = saved;
+    hideHint();
     const offline = game.offlineProgress(game.lastSave);
     world = new World(canvas);
     ui = new UI(game, uiCallbacks());
@@ -28,26 +43,58 @@ function init() {
     ui = new UI(game, uiCallbacks());
     world.syncAgents(game.agents);
     ui.toast('Welcome! Your first agent has arrived.');
+    setTimeout(hideHint, 15000);
   }
 
   window.addEventListener('resize', () => world.resize());
 
+  canvas.addEventListener('click', (e) => {
+    hideHint();
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    world.burstAt(x, y);
+    const bonus = Math.max(1, game.generationRate * 0.5);
+    game.stardust += bonus;
+    game.totalStardust += bonus;
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.getElementById('panel').classList.remove('open');
+    }
+    if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey) {
+      if (document.activeElement === document.body || document.activeElement === canvas) {
+        e.preventDefault();
+        document.getElementById('panel').classList.toggle('open');
+        hideHint();
+      }
+    }
+  });
+
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      saveGame(game);
+      doSave();
       running = false;
     } else {
       const offline = game.offlineProgress(game.lastSave);
       if (offline && offline.earned > 0) {
-        ui.toast(`+${formatNumQuick(offline.earned)} stardust while away`);
+        ui.toast(`+${fmtQuick(offline.earned)} stardust while away`);
       }
       running = true;
       lastFrame = performance.now();
     }
   });
 
+  window.addEventListener('beforeunload', () => doSave());
+
   lastFrame = performance.now();
   requestAnimationFrame(loop);
+}
+
+function doSave() {
+  saveGame(game);
+  showSaveIndicator();
 }
 
 function uiCallbacks() {
@@ -119,11 +166,11 @@ function loop(now) {
 
   if (now - lastAutoSave > CONFIG.AUTO_SAVE_MS) {
     lastAutoSave = now;
-    saveGame(game);
+    doSave();
   }
 }
 
-function formatNumQuick(n) {
+function fmtQuick(n) {
   if (n < 1000) return Math.floor(n).toString();
   const s = ['', 'K', 'M', 'B', 'T'];
   const t = Math.min(Math.floor(Math.log10(n) / 3), s.length - 1);
