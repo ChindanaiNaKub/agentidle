@@ -146,7 +146,11 @@ function loop(now) {
   const rawDt = Math.min(now - lastFrame, 200);
   lastFrame = now;
 
-  game.tick(rawDt);
+  const result = game.tick(rawDt);
+
+  if (result.autoSpawned) {
+    world.syncAgents(game.agents);
+  }
 
   const milestones = game.checkMilestones();
   for (const m of milestones) ui.toast(m.msg);
@@ -154,7 +158,6 @@ function loop(now) {
   if (now - lastRender >= frameInterval) {
     lastRender = now;
     const dt = rawDt / 1000;
-    world.syncAgents(game.agents);
     world.update(dt, game.speedMultiplier);
     world.draw(game.currentEra);
   }

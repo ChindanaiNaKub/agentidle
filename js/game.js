@@ -92,12 +92,14 @@ export class Game {
   }
 
   offlineProgress(savedTime) {
-    const elapsed = Date.now() - savedTime;
+    const now = Date.now();
+    const elapsed = now - savedTime;
     if (elapsed < 2000) return null;
     const mult = 0.5 + (this.upgrades.offlineBonus || 0) * 0.1;
     const earned = this.generationRate * (elapsed / 1000) * mult;
     this.stardust += earned;
     this.totalStardust += earned;
+    this.lastSave = now;
     return { elapsed, earned };
   }
 
@@ -142,6 +144,7 @@ const SAVE_KEY = 'idle_agents_save';
 
 export function saveGame(game) {
   try {
+    game.lastSave = Date.now();
     localStorage.setItem(SAVE_KEY, JSON.stringify(game.toJSON()));
   } catch (_) { /* storage full or unavailable */ }
 }
