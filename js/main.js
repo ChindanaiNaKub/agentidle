@@ -1,0 +1,183 @@
+import { CONFIG } from './config.js';
+import { Game, saveGame, loadGame, exportSave, importSave, wipeSave } from './game.js';
+import { World } from './world.js';
+import { UI } from './ui.js';
+
+let game, world, ui;
+let lastFrame = 0;
+let lastUIUpdate = 0;
+let lastAutoSave = 0;
+let running = true;
+let hintHidden = false;
+
+function showSaveIndicator() {
+  const el = document.getElementById('save-indicator');
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 1500);
+}
+
+function hideHint() {
+  if (hintHidden) return;
+  hintHidden = true;
+  const el = document.getElementById('hint');
+  if (el) el.classList.add('hidden');
+}
+
+function init() {
+  const canvas = document.getElementById('world');
+  const saved = loadGame();
+
+  if (saved) {
+    game = saved;
+    hideHint();
+    const offline = game.offlineProgress(game.lastSave);
+    world = new World(canvas);
+    ui = new UI(game, uiCallbacks());
+    world.syncAgents(game.agents);
+    if (offline) {
+      ui.showWelcomeBack(offline.elapsed, offline.earned);
+    }
+  } else {
+    game = new Game();
+    world = new World(canvas);
+    ui = new UI(game, uiCallbacks());
+    world.syncAgents(game.agents);
+    ui.toast('Welcome! Your first agent has arrived.');
+    setTimeout(hideHint, 15000);
+  }
+
+  window.addEventListener('resize', () => world.resize());
+
+  canvas.addEventListener('click', (e) => {
+    hideHint();
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    world.burstAt(x, y);
+    const bonus = Math.max(1, game.generationRate * 0.5);
+    game.stardust += bonus;
+    game.totalStardust += bonus;
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.getElementById('panel').classList.remove('open');
+    }
+    if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey) {
+      if (document.activeElement === document.body || document.activeElement === canvas) {
+        e.preventDefault();
+        document.getElementById('panel').classList.toggle('open');
+        hideHint();
+      }
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      doSave();
+      running = false;
+    } else {
+      const offline = game.offlineProgress(game.lastSave);
+      if (offline && offline.earned > 0) {
+        ui.toast(`+${fmtQuick(offline.earned)} stardust while away`);
+      }
+      running = true;
+      lastFrame = performance.now();
+    }
+  });
+
+  window.addEventListener('beforeunload', () => doSave());
+
+  lastFrame = performance.now();
+  requestAnimationFrame(loop);
+}
+
+function doSave() {
+  saveGame(game);
+  showSaveIndicator();
+}
+
+function uiCallbacks() {
+  return {
+    onBuyAgent(type) {
+      if (game.buyAgent(type)) {
+        world.syncAgents(game.agents);
+        ui.refresh();
+      }
+    },
+    onBuyUpgrade(id) {
+      if (game.buyUpgrade(id)) {
+        ui.refresh();
+      }
+    },
+    onExport() {
+      return exportSave(game);
+    },
+    onImport(data) {
+      const imported = importSave(data);
+      if (imported) {
+        game = imported;
+        ui.game = game;
+        world.syncAgents(game.agents);
+        ui.refresh();
+        ui.toast('Save imported successfully!');
+      } else {
+        ui.toast('Invalid save data.');
+      }
+    },
+    onReset() {
+      wipeSave();
+      game = new Game();
+      ui.game = game;
+      world.syncAgents(game.agents);
+      ui.refresh();
+      ui.toast('Game reset. A new beginning.');
+    },
+  };
+}
+
+const frameInterval = 1000 / CONFIG.CANVAS_FPS;
+let lastRender = 0;
+
+function loop(now) {
+  requestAnimationFrame(loop);
+  if (!running) return;
+
+  const rawDt = Math.min(now - lastFrame, 200);
+  lastFrame = now;
+
+  const result = game.tick(rawDt);
+
+  if (result.autoSpawned) {
+    world.syncAgents(game.agents);
+  }
+
+  const milestones = game.checkMilestones();
+  for (const m of milestones) ui.toast(m.msg);
+
+  if (now - lastRender >= frameInterval) {
+    lastRender = now;
+    const dt = rawDt / 1000;
+    world.update(dt, game.speedMultiplier);
+    world.draw(game.currentEra);
+  }
+
+  if (now - lastUIUpdate > CONFIG.UI_UPDATE_MS) {
+    lastUIUpdate = now;
+    ui.refresh();
+  }
+
+  if (now - lastAutoSave > CONFIG.AUTO_SAVE_MS) {
+    lastAutoSave = now;
+    doSave();
+  }
+}
+
+function fmtQuick(n) {
+  if (n < 1000) return Math.floor(n).toString();
+  const s = ['', 'K', 'M', 'B', 'T'];
+  const t = Math.min(Math.floor(Math.log10(n) / 3), s.length - 1);
+  return (n / Math.pow(10, t * 3)).toFixed(1) + s[t];
+}
+
+init();
