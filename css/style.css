@@ -7,9 +7,9 @@
 }
 
 :root {
-  --panel-bg: rgba(255, 255, 255, 0.12);
-  --panel-border: rgba(255, 255, 255, 0.18);
-  --panel-text: #fff;
+  --panel-bg: rgba(30, 20, 10, 0.55);
+  --panel-border: rgba(255, 255, 255, 0.12);
+  --panel-text: #fef9ef;
   --panel-width: 340px;
   --radius: 12px;
 }
@@ -42,7 +42,7 @@ html, body {
   align-items: center;
   gap: 24px;
   padding: 10px 20px;
-  background: rgba(0, 0, 0, 0.18);
+  background: rgba(20, 15, 5, 0.35);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   font-size: 13px;
@@ -72,7 +72,7 @@ html, body {
 #panel-toggle {
   margin-left: auto;
   background: none;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   color: inherit;
   font-size: 18px;
   width: 36px;
@@ -86,8 +86,86 @@ html, body {
 }
 
 #panel-toggle:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   transform: scale(1.05);
+}
+
+/* ── Music Widget ── */
+#music-widget {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(20, 15, 5, 0.45);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+#music-toggle {
+  background: none;
+  border: none;
+  color: var(--panel-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+#music-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+#music-toggle.playing {
+  color: #ffd54f;
+}
+
+#music-volume {
+  width: 70px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+#music-volume::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--panel-text);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+#music-volume::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--panel-text);
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+}
+
+#yt-player-wrap {
+  position: fixed;
+  left: -300px;
+  top: -300px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 /* ── Hint ── */
@@ -103,6 +181,7 @@ html, body {
   pointer-events: none;
   transition: opacity 1s;
   text-align: center;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 
 #hint.hidden {
@@ -179,7 +258,7 @@ html, body {
 
 .tab.active {
   opacity: 1;
-  border-bottom-color: rgba(255, 255, 255, 0.5);
+  border-bottom-color: rgba(255, 220, 120, 0.5);
 }
 
 .tab-content {
@@ -188,7 +267,7 @@ html, body {
   overflow-y: auto;
   padding: 12px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
 
 .tab-content.active {
@@ -203,23 +282,23 @@ html, body {
   padding: 10px;
   border-radius: var(--radius);
   margin-bottom: 8px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid transparent;
   transition: background 0.2s, border-color 0.2s, opacity 0.2s, transform 0.15s;
 }
 
 .shop-item.affordable {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 220, 120, 0.08);
+  border-color: rgba(255, 220, 120, 0.15);
 }
 
 .shop-item.affordable:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 220, 120, 0.14);
   transform: translateX(-2px);
 }
 
 .shop-item.locked {
-  opacity: 0.25;
+  opacity: 0.2;
   pointer-events: none;
 }
 
@@ -273,7 +352,7 @@ html, body {
 
 .shop-desc {
   font-size: 11px;
-  opacity: 0.45;
+  opacity: 0.4;
   margin-top: 2px;
   line-height: 1.3;
 }
@@ -282,8 +361,8 @@ html, body {
   flex-shrink: 0;
   padding: 6px 12px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
   color: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -293,7 +372,7 @@ html, body {
 }
 
 .shop-buy:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .shop-buy:active:not(:disabled) {
@@ -301,7 +380,7 @@ html, body {
 }
 
 .shop-buy:disabled {
-  opacity: 0.35;
+  opacity: 0.3;
   cursor: default;
 }
 
@@ -318,7 +397,7 @@ html, body {
   justify-content: space-between;
   font-size: 13px;
   padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.03);
   border-radius: 8px;
 }
 
@@ -341,8 +420,8 @@ html, body {
   width: 100%;
   padding: 10px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
   color: inherit;
   font-size: 13px;
   font-weight: 500;
@@ -351,22 +430,22 @@ html, body {
 }
 
 .action-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .action-btn.danger {
-  border-color: rgba(255, 80, 80, 0.3);
-  color: #ff8888;
+  border-color: rgba(255, 80, 80, 0.25);
+  color: #ff9999;
 }
 
 .action-btn.danger:hover {
-  background: rgba(255, 80, 80, 0.12);
+  background: rgba(255, 80, 80, 0.1);
 }
 
 /* ── Notifications ── */
 #notifications {
   position: fixed;
-  bottom: 24px;
+  bottom: 56px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 30;
@@ -380,17 +459,18 @@ html, body {
 .toast {
   padding: 10px 22px;
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(20, 15, 5, 0.6);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #fef9ef;
   font-size: 14px;
   font-weight: 500;
   opacity: 0;
   transform: translateY(12px) scale(0.97);
   transition: opacity 0.35s, transform 0.35s;
   white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
 .toast.show {
@@ -406,7 +486,7 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(10, 8, 3, 0.5);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   opacity: 0;
@@ -420,9 +500,9 @@ html, body {
 }
 
 .modal-content {
-  background: rgba(30, 30, 40, 0.92);
+  background: rgba(30, 25, 15, 0.92);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   padding: 28px 32px;
   max-width: 380px;
@@ -439,6 +519,7 @@ html, body {
   font-size: 20px;
   font-weight: 700;
   margin-bottom: 12px;
+  color: #ffd54f;
 }
 
 .modal-content p {
@@ -451,9 +532,9 @@ html, body {
 .modal-content button {
   padding: 10px 28px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  border: 1px solid rgba(255, 220, 120, 0.25);
+  background: rgba(255, 220, 120, 0.1);
+  color: #fef9ef;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -461,7 +542,7 @@ html, body {
 }
 
 .modal-content button:hover {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 220, 120, 0.2);
 }
 
 .modal-content button:active {
@@ -478,7 +559,7 @@ html, body {
 }
 
 .tab-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 4px;
 }
 
@@ -504,5 +585,10 @@ html, body {
 
   .shop-desc {
     white-space: normal;
+  }
+
+  #music-widget {
+    bottom: 8px;
+    left: 8px;
   }
 }

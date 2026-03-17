@@ -2,49 +2,49 @@ import { CONFIG } from './config.js';
 
 export class Game {
   constructor() {
-    this.stardust = 0;
-    this.totalStardust = 0;
-    this.agents = {};
+    this.sunlight = 0;
+    this.totalSunlight = 0;
+    this.plants = {};
     this.upgrades = {};
     this.milestonesSeen = [];
     this.startTime = Date.now();
     this.lastSave = Date.now();
 
-    for (const t of Object.keys(CONFIG.AGENT_TYPES)) this.agents[t] = 0;
+    for (const t of Object.keys(CONFIG.PLANT_TYPES)) this.plants[t] = 0;
     for (const u of Object.keys(CONFIG.UPGRADES)) this.upgrades[u] = 0;
 
-    this.agents.wanderer = 1;
-    this._autoSpawnTimer = 0;
+    this.plants.herb = 1;
+    this._autoPlantTimer = 0;
   }
 
-  get totalAgents() {
+  get totalPlants() {
     let n = 0;
-    for (const v of Object.values(this.agents)) n += v;
+    for (const v of Object.values(this.plants)) n += v;
     return n;
   }
 
-  get currentEra() {
-    for (let i = CONFIG.ERAS.length - 1; i >= 0; i--) {
-      if (this.totalStardust >= CONFIG.ERAS[i].threshold) return CONFIG.ERAS[i];
+  get currentSeason() {
+    for (let i = CONFIG.SEASONS.length - 1; i >= 0; i--) {
+      if (this.totalSunlight >= CONFIG.SEASONS[i].threshold) return CONFIG.SEASONS[i];
     }
-    return CONFIG.ERAS[0];
+    return CONFIG.SEASONS[0];
   }
 
   get generationRate() {
     let base = 0;
-    for (const [type, count] of Object.entries(this.agents)) {
-      base += CONFIG.AGENT_TYPES[type].generation * count;
+    for (const [type, count] of Object.entries(this.plants)) {
+      base += CONFIG.PLANT_TYPES[type].generation * count;
     }
-    return base * (1 + (this.upgrades.genRate || 0) * 0.5);
+    return base * (1 + (this.upgrades.growthSpeed || 0) * 0.5);
   }
 
-  get speedMultiplier() {
-    return 1 + (this.upgrades.agentSpeed || 0) * 0.2;
+  get glowMultiplier() {
+    return 1 + (this.upgrades.gardenBeauty || 0) * 0.2;
   }
 
-  agentCost(type) {
-    const c = CONFIG.AGENT_TYPES[type];
-    return Math.floor(c.baseCost * Math.pow(c.costScale, this.agents[type]));
+  plantCost(type) {
+    const c = CONFIG.PLANT_TYPES[type];
+    return Math.floor(c.baseCost * Math.pow(c.costScale, this.plants[type]));
   }
 
   upgradeCost(id) {
@@ -53,22 +53,22 @@ export class Game {
   }
 
   isUnlocked(type) {
-    return this.totalStardust >= CONFIG.AGENT_TYPES[type].unlockAt;
+    return this.totalSunlight >= CONFIG.PLANT_TYPES[type].unlockAt;
   }
 
-  buyAgent(type) {
-    const cost = this.agentCost(type);
-    if (this.stardust < cost || !this.isUnlocked(type)) return false;
-    this.stardust -= cost;
-    this.agents[type]++;
+  buyPlant(type) {
+    const cost = this.plantCost(type);
+    if (this.sunlight < cost || !this.isUnlocked(type)) return false;
+    this.sunlight -= cost;
+    this.plants[type]++;
     return true;
   }
 
   buyUpgrade(id) {
     const c = CONFIG.UPGRADES[id];
     const cost = this.upgradeCost(id);
-    if (this.stardust < cost || this.upgrades[id] >= c.maxLevel) return false;
-    this.stardust -= cost;
+    if (this.sunlight < cost || this.upgrades[id] >= c.maxLevel) return false;
+    this.sunlight -= cost;
     this.upgrades[id]++;
     return true;
   }
@@ -76,29 +76,29 @@ export class Game {
   tick(dtMs) {
     const dtSec = dtMs / 1000;
     const earned = this.generationRate * dtSec;
-    this.stardust += earned;
-    this.totalStardust += earned;
+    this.sunlight += earned;
+    this.totalSunlight += earned;
 
-    if (this.upgrades.autoSpawn > 0) {
-      const interval = Math.max(6, 30 - this.upgrades.autoSpawn * 2);
-      this._autoSpawnTimer += dtSec;
-      if (this._autoSpawnTimer >= interval) {
-        this._autoSpawnTimer -= interval;
-        this.agents.wanderer++;
-        return { autoSpawned: true };
+    if (this.upgrades.autoPlant > 0) {
+      const interval = Math.max(6, 30 - this.upgrades.autoPlant * 2);
+      this._autoPlantTimer += dtSec;
+      if (this._autoPlantTimer >= interval) {
+        this._autoPlantTimer -= interval;
+        this.plants.herb++;
+        return { autoPlanted: true };
       }
     }
-    return { autoSpawned: false };
+    return { autoPlanted: false };
   }
 
   offlineProgress(savedTime) {
     const now = Date.now();
     const elapsed = now - savedTime;
     if (elapsed < 2000) return null;
-    const mult = 0.5 + (this.upgrades.offlineBonus || 0) * 0.1;
+    const mult = 0.5 + (this.upgrades.offlineGrowth || 0) * 0.1;
     const earned = this.generationRate * (elapsed / 1000) * mult;
-    this.stardust += earned;
-    this.totalStardust += earned;
+    this.sunlight += earned;
+    this.totalSunlight += earned;
     this.lastSave = now;
     return { elapsed, earned };
   }
@@ -106,7 +106,7 @@ export class Game {
   checkMilestones() {
     const fresh = [];
     CONFIG.MILESTONES.forEach((m, i) => {
-      if (this.totalStardust >= m.at && !this.milestonesSeen.includes(i)) {
+      if (this.totalSunlight >= m.at && !this.milestonesSeen.includes(i)) {
         this.milestonesSeen.push(i);
         fresh.push(m);
       }
@@ -116,10 +116,10 @@ export class Game {
 
   toJSON() {
     return {
-      v: 1,
-      stardust: this.stardust,
-      totalStardust: this.totalStardust,
-      agents: { ...this.agents },
+      v: 2,
+      sunlight: this.sunlight,
+      totalSunlight: this.totalSunlight,
+      plants: { ...this.plants },
       upgrades: { ...this.upgrades },
       milestonesSeen: [...this.milestonesSeen],
       startTime: this.startTime,
@@ -129,31 +129,34 @@ export class Game {
 
   static fromJSON(d) {
     const g = new Game();
-    g.stardust = d.stardust || 0;
-    g.totalStardust = d.totalStardust || 0;
+    if (!d || d.v !== 2) return g;
+    g.sunlight = d.sunlight || 0;
+    g.totalSunlight = d.totalSunlight || 0;
     g.startTime = d.startTime || Date.now();
     g.lastSave = d.lastSave || Date.now();
     g.milestonesSeen = d.milestonesSeen || [];
-    if (d.agents) for (const t of Object.keys(CONFIG.AGENT_TYPES)) g.agents[t] = d.agents[t] || 0;
+    if (d.plants) for (const t of Object.keys(CONFIG.PLANT_TYPES)) g.plants[t] = d.plants[t] || 0;
     if (d.upgrades) for (const u of Object.keys(CONFIG.UPGRADES)) g.upgrades[u] = d.upgrades[u] || 0;
     return g;
   }
 }
 
-const SAVE_KEY = 'idle_agents_save';
+const SAVE_KEY = 'idle_garden_save';
 
 export function saveGame(game) {
   try {
     game.lastSave = Date.now();
     localStorage.setItem(SAVE_KEY, JSON.stringify(game.toJSON()));
-  } catch (_) { /* storage full or unavailable */ }
+  } catch (_) {}
 }
 
 export function loadGame() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
-    return Game.fromJSON(JSON.parse(raw));
+    const d = JSON.parse(raw);
+    if (!d || d.v !== 2) return null;
+    return Game.fromJSON(d);
   } catch (_) {
     return null;
   }
@@ -165,7 +168,9 @@ export function exportSave(game) {
 
 export function importSave(str) {
   try {
-    return Game.fromJSON(JSON.parse(atob(str)));
+    const d = JSON.parse(atob(str));
+    if (!d || d.v !== 2) return null;
+    return Game.fromJSON(d);
   } catch (_) {
     return null;
   }

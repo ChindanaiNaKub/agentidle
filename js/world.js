@@ -1,112 +1,60 @@
 import { CONFIG } from './config.js';
 
 const TAU = Math.PI * 2;
+function lerp(a, b, t) { return a + (b - a) * Math.min(1, Math.max(0, t)); }
 
-class VisualAgent {
-  constructor(type, w, h) {
-    const cfg = CONFIG.AGENT_TYPES[type];
+class VisualPlant {
+  constructor(type, x, groundY) {
     this.type = type;
-    this.x = Math.random() * w;
-    this.y = Math.random() * h;
-    this.radius = cfg.radius;
-    this.color = cfg.color;
-    this.glowColor = cfg.glowColor;
-    this.baseSpeed = cfg.speed;
-    this.angle = Math.random() * TAU;
-    this.targetAngle = this.angle;
-    this.turnTimer = 0;
-    this.turnInterval = 1 + Math.random() * 3;
-    this.particleTimer = Math.random() * 2;
+    this.x = x;
+    this.groundY = groundY;
+    this.growth = 0;
     this.phase = Math.random() * TAU;
-    this.orbitAngle = Math.random() * TAU;
-    this.orbitCenter = { x: this.x, y: this.y };
+    this.swaySpeed = 0.7 + Math.random() * 0.5;
+    this.swayAmt = 1.2 + Math.random() * 1.8;
   }
 
-  update(dt, speedMult, w, h, time) {
-    this.phase += dt * 2;
+  update(dt) {
+    const gt = CONFIG.PLANT_TYPES[this.type].growTime;
+    if (this.growth < 1) this.growth = Math.min(1, this.growth + dt / gt);
+  }
 
-    if (this.type === 'sage') {
-      this.orbitAngle += dt * 0.4 * speedMult;
-      const orbitR = 50 + Math.sin(time * 0.3 + this.phase) * 20;
-      const tx = this.orbitCenter.x + Math.cos(this.orbitAngle) * orbitR;
-      const ty = this.orbitCenter.y + Math.sin(this.orbitAngle) * orbitR;
-      this.x += (tx - this.x) * dt * 2;
-      this.y += (ty - this.y) * dt * 2;
-
-      if (this.orbitAngle > TAU * 3) {
-        this.orbitAngle = 0;
-        this.orbitCenter.x = 60 + Math.random() * (w - 120);
-        this.orbitCenter.y = 80 + Math.random() * (h - 160);
-      }
-    } else {
-      this.turnTimer += dt;
-      if (this.turnTimer >= this.turnInterval) {
-        this.turnTimer = 0;
-        this.turnInterval = 1 + Math.random() * 3;
-        this.targetAngle = this.angle + (Math.random() - 0.5) * Math.PI;
-      }
-
-      const turnSpeed = 1.5 * dt;
-      let diff = this.targetAngle - this.angle;
-      while (diff > Math.PI) diff -= TAU;
-      while (diff < -Math.PI) diff += TAU;
-      this.angle += Math.sign(diff) * Math.min(Math.abs(diff), turnSpeed);
-
-      const margin = 40;
-      if (this.x < margin) this.targetAngle = 0;
-      else if (this.x > w - margin) this.targetAngle = Math.PI;
-      if (this.y < margin) this.targetAngle = Math.PI / 2;
-      else if (this.y > h - margin) this.targetAngle = -Math.PI / 2;
-
-      const speed = this.baseSpeed * speedMult * 60;
-      this.x += Math.cos(this.angle) * speed * dt;
-      this.y += Math.sin(this.angle) * speed * dt;
-    }
-
-    this.x = Math.max(4, Math.min(w - 4, this.x));
-    this.y = Math.max(4, Math.min(h - 4, this.y));
-    this.particleTimer -= dt;
+  get stage() {
+    if (this.growth < 0.08) return 0;
+    if (this.growth < 0.25) return 1;
+    if (this.growth < 0.55) return 2;
+    if (this.growth < 0.85) return 3;
+    return 4;
   }
 }
 
 class Particle {
-  constructor(x, y, color, big) {
-    this.x = x;
-    this.y = y;
-    const spread = big ? 30 : 10;
-    const lift = big ? 25 : 18;
-    this.vx = (Math.random() - 0.5) * spread;
-    this.vy = -lift * (0.5 + Math.random());
-    this.life = 1;
-    this.decay = big ? 0.3 : (0.4 + Math.random() * 0.4);
+  constructor(x, y, color, vx, vy, life, size) {
+    this.x = x; this.y = y;
     this.color = color;
-    this.size = big ? (1.5 + Math.random() * 1.5) : (1 + Math.random());
+    this.vx = vx; this.vy = vy;
+    this.life = life; this.maxLife = life;
+    this.size = size;
   }
-
   update(dt) {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
-    this.vy *= 0.98;
-    this.life -= this.decay * dt;
+    this.life -= dt;
   }
-
-  get alive() {
-    return this.life > 0;
-  }
+  get alive() { return this.life > 0; }
 }
 
 export class World {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
-    this.agents = [];
+    this.plants = [];
     this.particles = [];
-    this.ambientDots = [];
-    this._bgCanvas = null;
-    this._bgEra = null;
     this.time = 0;
+    this._bgCache = null;
+    this._bgSeason = null;
+    this._grass = [];
     this.resize();
-    this._initAmbient();
   }
 
   resize() {
@@ -118,85 +66,119 @@ export class World {
     this.canvas.style.width = this.w + 'px';
     this.canvas.style.height = this.h + 'px';
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    this._bgCanvas = null;
+    this.groundY = Math.floor(this.h * (1 - CONFIG.GROUND_RATIO));
+    this._bgCache = null;
+    this._genGrass();
   }
 
-  _initAmbient() {
-    this.ambientDots = [];
-    for (let i = 0; i < 30; i++) {
-      this.ambientDots.push({
-        x: Math.random() * this.w,
-        y: Math.random() * this.h,
-        r: 0.5 + Math.random() * 1.5,
-        speed: 2 + Math.random() * 5,
-        alpha: 0.05 + Math.random() * 0.1,
+  _genGrass() {
+    this._grass = [];
+    for (let x = 0; x < this.w; x += 6 + Math.random() * 4) {
+      this._grass.push({
+        x,
+        h: 3 + Math.random() * 6,
+        lean: (Math.random() - 0.5) * 0.3,
       });
     }
   }
 
-  _buildBg(era) {
+  _buildBg(season) {
     const c = document.createElement('canvas');
-    c.width = this.w;
-    c.height = this.h;
+    c.width = this.w; c.height = this.h;
     const ctx = c.getContext('2d');
-    const grad = ctx.createLinearGradient(0, 0, this.w * 0.3, this.h);
-    grad.addColorStop(0, era.bg[0]);
-    grad.addColorStop(1, era.bg[1]);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, this.w, this.h);
-    this._bgCanvas = c;
-    this._bgEra = era.name;
+
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, this.groundY);
+    skyGrad.addColorStop(0, season.sky[0]);
+    skyGrad.addColorStop(1, season.sky[1]);
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, this.w, this.groundY + 10);
+
+    const gndGrad = ctx.createLinearGradient(0, this.groundY, 0, this.h);
+    gndGrad.addColorStop(0, season.ground[0]);
+    gndGrad.addColorStop(1, season.ground[1]);
+    ctx.fillStyle = gndGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, this.groundY);
+    for (let x = 0; x <= this.w; x += 15) {
+      const y = this.groundY + Math.sin(x * 0.012) * 6 + Math.sin(x * 0.005 + 1) * 4;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(this.w, this.h);
+    ctx.lineTo(0, this.h);
+    ctx.closePath();
+    ctx.fill();
+
+    this._bgCache = c;
+    this._bgSeason = season.name;
   }
 
   burstAt(x, y) {
-    const colors = ['#ffb347', '#77dd77', '#79d4f1', '#b19cd9', '#fdfd96', '#fff'];
-    for (let i = 0; i < 8; i++) {
-      if (this.particles.length >= CONFIG.MAX_PARTICLES + 20) break;
-      this.particles.push(new Particle(x, y, colors[Math.floor(Math.random() * colors.length)], true));
+    const colors = ['#ffd54f', '#81c784', '#ffab91', '#ce93d8', '#fff59d'];
+    for (let i = 0; i < 8 && this.particles.length < CONFIG.MAX_PARTICLES + 20; i++) {
+      this.particles.push(new Particle(
+        x, y,
+        colors[Math.floor(Math.random() * colors.length)],
+        (Math.random() - 0.5) * 40,
+        -20 - Math.random() * 30,
+        0.8 + Math.random() * 0.6,
+        1.5 + Math.random() * 1.5,
+      ));
     }
   }
 
-  syncAgents(gameCounts) {
+  syncPlants(plantCounts) {
     const typeMap = {};
-    for (const a of this.agents) {
-      if (!typeMap[a.type]) typeMap[a.type] = [];
-      typeMap[a.type].push(a);
+    for (const p of this.plants) {
+      if (!typeMap[p.type]) typeMap[p.type] = [];
+      typeMap[p.type].push(p);
     }
 
-    const maxVisual = CONFIG.MAX_VISUAL_AGENTS;
-    let totalDesired = 0;
-    for (const v of Object.values(gameCounts)) totalDesired += v;
-    const scale = totalDesired > maxVisual ? maxVisual / totalDesired : 1;
+    const maxV = CONFIG.MAX_VISUAL_PLANTS;
+    let total = 0;
+    for (const v of Object.values(plantCounts)) total += v;
+    const scale = total > maxV ? maxV / total : 1;
 
     const next = [];
-    for (const [type, count] of Object.entries(gameCounts)) {
+    const margin = 30;
+    const groundRange = this.h - this.groundY;
+
+    for (const [type, count] of Object.entries(plantCounts)) {
       if (count === 0) continue;
       const desired = Math.max(1, Math.round(count * scale));
       const existing = typeMap[type] || [];
+
       for (let i = 0; i < Math.min(desired, existing.length); i++) {
         next.push(existing[i]);
       }
       for (let i = existing.length; i < desired; i++) {
-        next.push(new VisualAgent(type, this.w, this.h));
+        const x = margin + Math.random() * (this.w - margin * 2);
+        const yOff = 10 + Math.random() * groundRange * 0.45;
+        next.push(new VisualPlant(type, x, this.groundY + yOff));
       }
     }
-    this.agents = next;
+
+    next.sort((a, b) => a.groundY - b.groundY);
+    this.plants = next;
   }
 
-  update(dt, speedMult) {
+  update(dt, glowMult) {
     this.time += dt;
 
-    for (const a of this.agents) {
-      a.update(dt, speedMult, this.w, this.h, this.time);
-      if (a.particleTimer <= 0 && this.particles.length < CONFIG.MAX_PARTICLES) {
-        a.particleTimer = 1.5 + Math.random() * 2;
-        this.particles.push(new Particle(a.x, a.y, a.color, false));
+    for (const p of this.plants) {
+      p.update(dt);
+      if (p.stage >= 3 && Math.random() < dt * 0.15 && this.particles.length < CONFIG.MAX_PARTICLES) {
+        const cfg = CONFIG.PLANT_TYPES[p.type];
+        const h = cfg.maxH * p.growth;
+        this.particles.push(new Particle(
+          p.x + (Math.random() - 0.5) * 10,
+          p.groundY - h + Math.random() * 5,
+          cfg.color,
+          (Math.random() - 0.5) * 8,
+          -6 - Math.random() * 10,
+          1.5 + Math.random(),
+          1 + Math.random(),
+        ));
       }
-    }
-
-    for (const d of this.ambientDots) {
-      d.y -= d.speed * dt;
-      if (d.y < -10) { d.y = this.h + 10; d.x = Math.random() * this.w; }
     }
 
     for (let i = this.particles.length - 1; i >= 0; i--) {
@@ -205,75 +187,301 @@ export class World {
     }
   }
 
-  draw(era) {
+  draw(season, glowMult) {
     const ctx = this.ctx;
     const t = this.time;
 
-    if (!this._bgCanvas || this._bgEra !== era.name) this._buildBg(era);
-    ctx.drawImage(this._bgCanvas, 0, 0);
+    if (!this._bgCache || this._bgSeason !== season.name) this._buildBg(season);
+    ctx.drawImage(this._bgCache, 0, 0);
 
-    for (const d of this.ambientDots) {
-      if (d.x > this.w || d.y > this.h || d.x < 0 || d.y < 0) continue;
-      ctx.globalAlpha = d.alpha;
-      ctx.beginPath();
-      ctx.arc(d.x, d.y, d.r, 0, TAU);
-      ctx.fillStyle = '#fff';
-      ctx.fill();
-    }
+    this._drawSun(ctx, t);
+    this._drawClouds(ctx, t);
+    this._drawGrass(ctx, t, season);
 
-    const seekers = [];
-    for (const a of this.agents) {
-      if (a.type === 'seeker') seekers.push(a);
-
-      const pulse = 1 + Math.sin(t * 2 + a.phase) * 0.15;
-      const glowR = a.radius * 3.5 * pulse;
-
-      ctx.globalAlpha = 0.18 * pulse;
-      ctx.beginPath();
-      ctx.arc(a.x, a.y, glowR, 0, TAU);
-      ctx.fillStyle = a.glowColor;
-      ctx.fill();
-
-      ctx.globalAlpha = 0.92;
-      ctx.beginPath();
-      ctx.arc(a.x, a.y, a.radius, 0, TAU);
-      ctx.fillStyle = a.color;
-      ctx.fill();
-
-      ctx.globalAlpha = 0.6;
-      ctx.beginPath();
-      ctx.arc(a.x - a.radius * 0.25, a.y - a.radius * 0.25, a.radius * 0.35, 0, TAU);
-      ctx.fillStyle = '#fff';
-      ctx.fill();
-    }
-
-    if (seekers.length > 1) {
-      ctx.strokeStyle = CONFIG.AGENT_TYPES.seeker.color;
-      ctx.lineWidth = 0.5;
-      for (let i = 0; i < seekers.length; i++) {
-        for (let j = i + 1; j < seekers.length; j++) {
-          const dx = seekers[j].x - seekers[i].x;
-          const dy = seekers[j].y - seekers[i].y;
-          const distSq = dx * dx + dy * dy;
-          if (distSq < 40000) {
-            ctx.globalAlpha = 0.12 * (1 - distSq / 40000);
-            ctx.beginPath();
-            ctx.moveTo(seekers[i].x, seekers[i].y);
-            ctx.lineTo(seekers[j].x, seekers[j].y);
-            ctx.stroke();
-          }
-        }
-      }
+    for (const p of this.plants) {
+      const sway = Math.sin(t * p.swaySpeed + p.phase) * p.swayAmt * p.growth;
+      PLANT_DRAW[p.type](ctx, p.x, p.groundY, p.stage, sway, t, glowMult, p.growth);
     }
 
     for (const p of this.particles) {
-      ctx.globalAlpha = p.life * 0.5;
+      ctx.globalAlpha = (p.life / p.maxLife) * 0.6;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, TAU);
       ctx.fillStyle = p.color;
       ctx.fill();
     }
-
     ctx.globalAlpha = 1;
   }
+
+  _drawSun(ctx, t) {
+    const sx = this.w * 0.82;
+    const sy = this.groundY * 0.22;
+    const pulse = 1 + Math.sin(t * 0.5) * 0.05;
+    ctx.fillStyle = 'rgba(255,236,179,0.25)';
+    ctx.beginPath();
+    ctx.arc(sx, sy, 42 * pulse, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,236,179,0.7)';
+    ctx.beginPath();
+    ctx.arc(sx, sy, 22, 0, TAU);
+    ctx.fill();
+  }
+
+  _drawClouds(ctx, t) {
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    this._cloud(ctx, this.w * 0.15 + Math.sin(t * 0.06) * 25, this.groundY * 0.28, 0.9);
+    this._cloud(ctx, this.w * 0.55 + Math.sin(t * 0.04 + 2) * 20, this.groundY * 0.18, 1.1);
+    this._cloud(ctx, this.w * 0.85 + Math.sin(t * 0.05 + 5) * 15, this.groundY * 0.35, 0.7);
+  }
+
+  _cloud(ctx, x, y, s) {
+    ctx.beginPath();
+    ctx.arc(x, y, 14 * s, 0, TAU);
+    ctx.arc(x + 13 * s, y - 5 * s, 11 * s, 0, TAU);
+    ctx.arc(x + 24 * s, y, 9 * s, 0, TAU);
+    ctx.arc(x - 9 * s, y + 2 * s, 9 * s, 0, TAU);
+    ctx.fill();
+  }
+
+  _drawGrass(ctx, t, season) {
+    ctx.strokeStyle = season.ground[0];
+    ctx.lineWidth = 1;
+    for (const g of this._grass) {
+      const sway = Math.sin(t * 1.2 + g.x * 0.05) * 1.5;
+      ctx.beginPath();
+      ctx.moveTo(g.x, this.groundY + 3);
+      ctx.lineTo(g.x + g.lean * g.h + sway, this.groundY + 3 - g.h);
+      ctx.stroke();
+    }
+  }
 }
+
+function drawLeaf(ctx, x, y, angle, len, w) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.ellipse(len * 0.5, 0, len * 0.5, w * 0.5, 0, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+}
+
+const PLANT_DRAW = {
+  herb(ctx, x, y, stage, sway, t, glow, growth) {
+    const h = lerp(2, 18, growth);
+    const tx = x + sway;
+
+    ctx.strokeStyle = '#4a7c3f';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.quadraticCurveTo(x + sway * 0.4, y - h * 0.5, tx, y - h);
+    ctx.stroke();
+
+    if (stage >= 1) {
+      ctx.fillStyle = '#6abf69';
+      drawLeaf(ctx, x + sway * 0.2 - 3, y - h * 0.4, -0.5, 6, 3);
+      drawLeaf(ctx, x + sway * 0.2 + 3, y - h * 0.4, 0.5, 6, 3);
+    }
+    if (stage >= 2) {
+      ctx.fillStyle = '#81c784';
+      drawLeaf(ctx, x + sway * 0.5 - 4, y - h * 0.65, -0.3, 7, 4);
+      drawLeaf(ctx, x + sway * 0.5 + 4, y - h * 0.65, 0.3, 7, 4);
+    }
+    if (stage >= 3) {
+      ctx.fillStyle = '#5a9c4a';
+      ctx.beginPath();
+      ctx.arc(tx, y - h, 6, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = '#6abf69';
+      ctx.beginPath();
+      ctx.arc(tx - 3, y - h + 2, 4.5, 0, TAU);
+      ctx.fill();
+    }
+    if (stage >= 4) {
+      ctx.globalAlpha = 0.25 * glow;
+      ctx.fillStyle = '#a5d6a7';
+      ctx.beginPath();
+      ctx.arc(tx, y - h, 10 + Math.sin(t * 2) * 2, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  },
+
+  sunflower(ctx, x, y, stage, sway, t, glow, growth) {
+    const h = lerp(3, 42, growth);
+    const tx = x + sway;
+
+    ctx.strokeStyle = '#558b2f';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.quadraticCurveTo(x + sway * 0.3, y - h * 0.5, tx, y - h);
+    ctx.stroke();
+
+    if (stage >= 2) {
+      ctx.fillStyle = '#66bb6a';
+      drawLeaf(ctx, x + sway * 0.15 - 5, y - h * 0.35, -0.4, 11, 5);
+      drawLeaf(ctx, x + sway * 0.15 + 5, y - h * 0.35, 0.4, 11, 5);
+    }
+    if (stage >= 1) {
+      ctx.fillStyle = '#81c784';
+      drawLeaf(ctx, x + sway * 0.1 - 3, y - h * 0.2, -0.6, 6, 3);
+      drawLeaf(ctx, x + sway * 0.1 + 3, y - h * 0.2, 0.6, 6, 3);
+    }
+    if (stage >= 3) {
+      const cx = tx, cy = y - h;
+      ctx.fillStyle = '#ffd600';
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * TAU + Math.sin(t * 0.5 + i) * 0.04;
+        ctx.save();
+        ctx.translate(cx + Math.cos(a) * 7, cy + Math.sin(a) * 7);
+        ctx.rotate(a);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 5.5, 2.8, 0, 0, TAU);
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.fillStyle = '#5d4037';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 5, 0, TAU);
+      ctx.fill();
+    }
+    if (stage >= 4) {
+      ctx.globalAlpha = 0.15 * glow;
+      ctx.fillStyle = '#ffd600';
+      ctx.beginPath();
+      ctx.arc(tx, y - h, 18, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  },
+
+  lavender(ctx, x, y, stage, sway, t, glow, growth) {
+    const h = lerp(2, 30, growth);
+    const stems = stage >= 2 ? 3 : 1;
+
+    for (let s = 0; s < stems; s++) {
+      const off = (s - (stems - 1) / 2) * 5;
+      const sx = x + off + sway;
+
+      ctx.strokeStyle = '#7cb342';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x + off, y);
+      ctx.quadraticCurveTo(sx, y - h * 0.5, sx, y - h);
+      ctx.stroke();
+
+      if (stage >= 3) {
+        ctx.fillStyle = '#b39ddb';
+        for (let i = 0; i < 5; i++) {
+          ctx.beginPath();
+          ctx.arc(sx, y - h + i * 3.5, 2.8 - i * 0.3, 0, TAU);
+          ctx.fill();
+        }
+      }
+    }
+    if (stage >= 1) {
+      ctx.fillStyle = '#a5d6a7';
+      drawLeaf(ctx, x - 3, y - h * 0.25, -0.5, 5, 2.5);
+      drawLeaf(ctx, x + 3, y - h * 0.25, 0.5, 5, 2.5);
+    }
+    if (stage >= 4) {
+      ctx.globalAlpha = 0.18 * glow;
+      ctx.fillStyle = '#ce93d8';
+      ctx.beginPath();
+      ctx.arc(x + sway, y - h, 14, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  },
+
+  maple(ctx, x, y, stage, sway, t, glow, growth) {
+    const h = lerp(3, 58, growth);
+    const tw = lerp(1, 6, growth);
+
+    ctx.fillStyle = '#6d4c41';
+    const bx = x + sway * 0.2;
+    ctx.fillRect(bx - tw / 2, y - h * 0.55, tw, h * 0.55);
+
+    if (stage >= 2) {
+      const cr = lerp(5, 24, (growth - 0.3) / 0.7);
+      const cx = x + sway * 0.4, cy = y - h;
+
+      ctx.fillStyle = '#ff8a65';
+      ctx.beginPath();
+      ctx.arc(cx, cy, cr, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = '#ff7043';
+      ctx.beginPath();
+      ctx.arc(cx - cr * 0.3, cy + cr * 0.15, cr * 0.7, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = '#e64a19';
+      ctx.beginPath();
+      ctx.arc(cx + cr * 0.25, cy + cr * 0.1, cr * 0.5, 0, TAU);
+      ctx.fill();
+    }
+    if (stage >= 1 && stage < 3) {
+      ctx.fillStyle = '#a5d6a7';
+      drawLeaf(ctx, bx - 3, y - h * 0.3, -0.4, 5, 3);
+      drawLeaf(ctx, bx + 3, y - h * 0.3, 0.4, 5, 3);
+    }
+    if (stage >= 4) {
+      ctx.globalAlpha = 0.1 * glow;
+      ctx.fillStyle = '#ff7043';
+      ctx.beginPath();
+      ctx.arc(x + sway * 0.4, y - h, 32, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  },
+
+  cherry(ctx, x, y, stage, sway, t, glow, growth) {
+    const h = lerp(3, 65, growth);
+    const tw = lerp(1, 7, growth);
+
+    ctx.fillStyle = '#5d4037';
+    const bx = x + sway * 0.15;
+    ctx.fillRect(bx - tw / 2, y - h * 0.5, tw, h * 0.5);
+
+    if (stage >= 2) {
+      ctx.strokeStyle = '#5d4037';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(bx, y - h * 0.45);
+      ctx.lineTo(bx - 16 + sway * 0.2, y - h * 0.65);
+      ctx.moveTo(bx, y - h * 0.45);
+      ctx.lineTo(bx + 16 + sway * 0.2, y - h * 0.65);
+      ctx.stroke();
+    }
+    if (stage >= 3) {
+      const cr = lerp(8, 28, (growth - 0.4) / 0.6);
+      const cx = x + sway * 0.2, cy = y - h + 6;
+
+      ctx.fillStyle = '#f48fb1';
+      ctx.beginPath();
+      ctx.arc(cx, cy, cr, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = '#f8bbd0';
+      ctx.beginPath();
+      ctx.arc(cx - cr * 0.4, cy + cr * 0.2, cr * 0.6, 0, TAU);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx + cr * 0.4, cy + cr * 0.2, cr * 0.55, 0, TAU);
+      ctx.fill();
+    }
+    if (stage >= 1 && stage < 3) {
+      ctx.fillStyle = '#a5d6a7';
+      drawLeaf(ctx, bx - 3, y - h * 0.25, -0.5, 5, 3);
+      drawLeaf(ctx, bx + 3, y - h * 0.25, 0.5, 5, 3);
+    }
+    if (stage >= 4) {
+      ctx.globalAlpha = 0.1 * glow;
+      ctx.fillStyle = '#f48fb1';
+      ctx.beginPath();
+      ctx.arc(x + sway * 0.2, y - h + 6, 38, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  },
+};
