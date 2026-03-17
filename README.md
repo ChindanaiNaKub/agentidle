@@ -1,8 +1,8 @@
-# Idle Agents ✦
+# Idle Garden 🌱
 
-A calming, lightweight browser idle game where autonomous agents grow and thrive while you work.
+A cozy, lightweight idle farming game with lofi beats. Grow your garden while you work.
 
-Watch your colony of glowing agents drift across a peaceful world, generating stardust as they go. No pressure, no penalties — just gentle, endless growth.
+Plant herbs, sunflowers, lavender, maples, and cherry blossoms. Watch them sprout, grow, and bloom as your garden fills with life. Seasons change as you progress. Put on the lofi music and let your garden grow.
 
 ## Play
 
@@ -24,77 +24,79 @@ Then visit `http://localhost:8080`.
 
 ## How It Works
 
-- **Agents** wander your world autonomously, each generating stardust per second
-- **Stardust** is your currency — spend it to recruit more agents or buy upgrades
-- **Eras** change the visual theme as your total stardust grows (Dawn → Garden → Ocean → Cosmos → Ethereal)
-- **Offline progress** — close the tab, come back later, and collect what your agents earned while you were away
-- **Click anywhere** on the canvas for a burst of particles and a small stardust bonus
+- **Plants** grow in your garden, each generating sunlight per second
+- **Sunlight** is your currency — spend it on more plants or upgrades
+- **Seasons** change the visual theme as your total sunlight grows (Spring → Summer → Autumn → Winter → Eternal)
+- **Offline progress** — close the tab, come back later, and collect what grew while you were away
+- **Click anywhere** on the garden for a burst of particles and a sunlight bonus
+- **Lofi music** — built-in YouTube player for lofi beats while you garden
 
-## Agent Types
+## Plant Types
 
-| Agent | Stardust/s | Unlock At | Description |
-|-------|-----------|-----------|-------------|
-| Wanderer | 1 | Start | A gentle drifter |
-| Gatherer | 5 | 500 total | A keen collector |
-| Seeker | 20 | 10K total | Forms networks with nearby agents |
-| Sage | 100 | 200K total | Orbits in enlightened patterns |
-| Architect | 500 | 5M total | Shapes reality itself |
+| Plant | Sunlight/s | Unlock At | Grow Time |
+|-------|-----------|-----------|-----------|
+| Herb | 1 | Start | 20s |
+| Sunflower | 5 | 500 total | 40s |
+| Lavender | 20 | 10K total | 60s |
+| Maple Tree | 100 | 200K total | 120s |
+| Cherry Blossom | 500 | 5M total | 240s |
 
 ## Upgrades
 
-- **Generation Boost** — +50% stardust generation per level
-- **Swift Movement** — Agents move 20% faster (visual flair)
-- **Auto Spawn** — Automatically spawn wanderers over time
-- **Offline Mastery** — Earn more stardust while away
+- **Fertile Soil** — +50% sunlight generation per level
+- **Golden Light** — Plants glow 20% brighter (visual)
+- **Nature's Way** — Auto-plant herbs over time
+- **Dream Garden** — Earn more sunlight while away
 
 ## Controls
 
 | Action | Effect |
 |--------|--------|
-| Click canvas | Particle burst + stardust bonus |
+| Click garden | Particle burst + sunlight bonus |
 | ☰ button / Tab | Toggle shop panel |
 | Escape | Close panel |
+| ▶ Lofi button | Play/pause lofi beats |
+| Volume slider | Adjust music volume |
 
 ## Technical Details
 
 - **Zero dependencies** — pure vanilla HTML, CSS, and JavaScript
-- **Zero build step** — just static files, works with any HTTP server
-- **~1400 lines total** — small, readable, hackable
-- **30 FPS cap** — gentle on your CPU, won't drain your battery
-- **ES Modules** — clean, modern code organization
-- **localStorage** — auto-saves every 30 seconds, saves on tab close
-- **Export/Import** — backup your save as a portable string
+- **Zero build step** — just static files
+- **30 FPS cap** — gentle on CPU and battery
+- **ES Modules** — clean code organization
+- **localStorage** — auto-saves every 30 seconds
+- **Export/Import** — portable save strings
 - **Responsive** — works on desktop and mobile
+- **YouTube IFrame API** — lofi music integration (optional, game works without it)
 
 ## Project Structure
 
 ```
 ├── index.html          Main page
 ├── css/
-│   └── style.css       All styles (glassmorphic UI)
+│   └── style.css       All styles
 ├── js/
 │   ├── config.js       Game constants and definitions
-│   ├── game.js         Core game state, logic, save/load
-│   ├── world.js        Canvas rendering, agents, particles
+│   ├── game.js         Core state, logic, save/load
+│   ├── world.js        Canvas garden rendering
 │   ├── ui.js           DOM interface, shop, notifications
-│   └── main.js         Entry point, game loop, events
+│   ├── music.js        YouTube lofi music player
+│   └── main.js         Entry point, game loop
 ├── LICENSE             MIT
 └── README.md
 ```
 
 ## Contributing
 
-This is open source and free forever. Contributions welcome!
+Open source and free forever. Ideas for future enhancements:
 
-Some ideas for future enhancements:
-
-- Prestige system (reset for permanent multipliers)
+- More plant varieties and visual stages
+- Prestige system (reset for permanent bonuses)
+- Garden layout customization (drag plants)
+- Weather effects (rain, wind)
 - Achievements
-- More agent types and behaviors
-- Ambient sound toggle
-- Themes / custom color palettes
-- Statistics graphs
-- Touch gestures for mobile
+- Custom music playlist support
+- Day/night cycle
 
 ## License
 

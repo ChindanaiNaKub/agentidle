@@ -2,13 +2,13 @@ import { CONFIG } from './config.js';
 import { Game, saveGame, loadGame, exportSave, importSave, wipeSave } from './game.js';
 import { World } from './world.js';
 import { UI } from './ui.js';
+import { MusicPlayer } from './music.js';
 
-let game, world, ui;
+let game, world, ui, music;
 let lastFrame = 0;
 let lastUIUpdate = 0;
 let lastAutoSave = 0;
 let running = true;
-let hintHidden = false;
 
 function showSaveIndicator() {
   const el = document.getElementById('save-indicator');
@@ -17,15 +17,23 @@ function showSaveIndicator() {
 }
 
 function hideHint() {
-  if (hintHidden) return;
-  hintHidden = true;
   const el = document.getElementById('hint');
   if (el) el.classList.add('hidden');
+}
+
+function doSave() {
+  saveGame(game);
+  showSaveIndicator();
 }
 
 function init() {
   const canvas = document.getElementById('world');
   const saved = loadGame();
+
+  music = new MusicPlayer((state) => {
+    ui.updateMusicBtn(music.isPlaying());
+  });
+  music.init();
 
   if (saved) {
     game = saved;
@@ -33,7 +41,7 @@ function init() {
     const offline = game.offlineProgress(game.lastSave);
     world = new World(canvas);
     ui = new UI(game, uiCallbacks());
-    world.syncAgents(game.agents);
+    world.syncPlants(game.plants);
     if (offline) {
       ui.showWelcomeBack(offline.elapsed, offline.earned);
     }
@@ -41,8 +49,8 @@ function init() {
     game = new Game();
     world = new World(canvas);
     ui = new UI(game, uiCallbacks());
-    world.syncAgents(game.agents);
-    ui.toast('Welcome! Your first agent has arrived.');
+    world.syncPlants(game.plants);
+    ui.toast('Welcome to your garden! Your first herb is planted.');
     setTimeout(hideHint, 15000);
   }
 
@@ -55,8 +63,8 @@ function init() {
     const y = e.clientY - rect.top;
     world.burstAt(x, y);
     const bonus = Math.max(1, game.generationRate * 0.5);
-    game.stardust += bonus;
-    game.totalStardust += bonus;
+    game.sunlight += bonus;
+    game.totalSunlight += bonus;
   });
 
   document.addEventListener('keydown', (e) => {
@@ -79,7 +87,7 @@ function init() {
     } else {
       const offline = game.offlineProgress(game.lastSave);
       if (offline && offline.earned > 0) {
-        ui.toast(`+${fmtQuick(offline.earned)} stardust while away`);
+        ui.toast(`+${fmtQuick(offline.earned)} sunlight while away`);
       }
       running = true;
       lastFrame = performance.now();
@@ -92,16 +100,11 @@ function init() {
   requestAnimationFrame(loop);
 }
 
-function doSave() {
-  saveGame(game);
-  showSaveIndicator();
-}
-
 function uiCallbacks() {
   return {
-    onBuyAgent(type) {
-      if (game.buyAgent(type)) {
-        world.syncAgents(game.agents);
+    onBuyPlant(type) {
+      if (game.buyPlant(type)) {
+        world.syncPlants(game.plants);
         ui.refresh();
       }
     },
@@ -118,7 +121,7 @@ function uiCallbacks() {
       if (imported) {
         game = imported;
         ui.game = game;
-        world.syncAgents(game.agents);
+        world.syncPlants(game.plants);
         ui.refresh();
         ui.toast('Save imported successfully!');
       } else {
@@ -129,9 +132,16 @@ function uiCallbacks() {
       wipeSave();
       game = new Game();
       ui.game = game;
-      world.syncAgents(game.agents);
+      world.syncPlants(game.plants);
       ui.refresh();
-      ui.toast('Game reset. A new beginning.');
+      ui.toast('Garden cleared. A fresh start.');
+    },
+    onMusicToggle() {
+      music.toggle();
+      setTimeout(() => ui.updateMusicBtn(music.isPlaying()), 200);
+    },
+    onMusicVolume(v) {
+      music.setVolume(v);
     },
   };
 }
@@ -148,8 +158,8 @@ function loop(now) {
 
   const result = game.tick(rawDt);
 
-  if (result.autoSpawned) {
-    world.syncAgents(game.agents);
+  if (result.autoPlanted) {
+    world.syncPlants(game.plants);
   }
 
   const milestones = game.checkMilestones();
@@ -158,8 +168,8 @@ function loop(now) {
   if (now - lastRender >= frameInterval) {
     lastRender = now;
     const dt = rawDt / 1000;
-    world.update(dt, game.speedMultiplier);
-    world.draw(game.currentEra);
+    world.update(dt, game.glowMultiplier);
+    world.draw(game.currentSeason, game.glowMultiplier);
   }
 
   if (now - lastUIUpdate > CONFIG.UI_UPDATE_MS) {

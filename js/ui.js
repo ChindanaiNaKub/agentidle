@@ -5,26 +5,28 @@ export class UI {
   constructor(game, callbacks) {
     this.game = game;
     this.callbacks = callbacks;
-    this._lastEra = null;
+    this._lastSeason = null;
 
     this.els = {
-      stardust: document.getElementById('stardust-count'),
-      rate: document.getElementById('stardust-rate'),
-      agentCount: document.getElementById('agent-count'),
-      eraName: document.getElementById('era-name'),
+      sunlight: document.getElementById('sunlight-count'),
+      rate: document.getElementById('sunlight-rate'),
+      plantCount: document.getElementById('plant-count'),
+      seasonName: document.getElementById('season-name'),
       panelToggle: document.getElementById('panel-toggle'),
       panel: document.getElementById('panel'),
       tabs: document.querySelectorAll('#panel-tabs .tab'),
-      tabAgents: document.getElementById('tab-agents'),
+      tabPlants: document.getElementById('tab-plants'),
       tabUpgrades: document.getElementById('tab-upgrades'),
       tabStats: document.getElementById('tab-stats'),
       notifications: document.getElementById('notifications'),
       modal: document.getElementById('welcome-modal'),
       offlineMsg: document.getElementById('offline-message'),
       closeModal: document.getElementById('close-modal'),
+      musicToggle: document.getElementById('music-toggle'),
+      musicVolume: document.getElementById('music-volume'),
     };
 
-    this._buildAgentButtons();
+    this._buildPlantButtons();
     this._buildUpgradeButtons();
     this._buildStatsPanel();
     this._bindEvents();
@@ -48,6 +50,11 @@ export class UI {
       this.els.modal.classList.remove('show');
     });
 
+    this.els.musicToggle.addEventListener('click', () => this.callbacks.onMusicToggle());
+    this.els.musicVolume.addEventListener('input', (e) => {
+      this.callbacks.onMusicVolume(parseInt(e.target.value, 10));
+    });
+
     document.getElementById('btn-export').addEventListener('click', () => {
       const data = this.callbacks.onExport();
       navigator.clipboard.writeText(data).then(() => {
@@ -69,24 +76,24 @@ export class UI {
     });
   }
 
-  _buildAgentButtons() {
-    const container = this.els.tabAgents;
+  _buildPlantButtons() {
+    const container = this.els.tabPlants;
     container.innerHTML = '';
-    for (const [type, cfg] of Object.entries(CONFIG.AGENT_TYPES)) {
+    for (const [type, cfg] of Object.entries(CONFIG.PLANT_TYPES)) {
       const div = document.createElement('div');
       div.className = 'shop-item';
       div.dataset.type = type;
       div.innerHTML = `
         <div class="shop-dot" style="background:${cfg.color}"></div>
         <div class="shop-info">
-          <div class="shop-name">${cfg.name} <span class="shop-count" id="count-${type}">0</span></div>
+          <div class="shop-name">${cfg.name} <span class="shop-count" id="count-${type}">×0</span></div>
           <div class="shop-desc">${cfg.description}</div>
         </div>
         <button class="shop-buy" id="buy-${type}">
-          <span class="shop-cost" id="cost-${type}">10</span> ✦
+          <span class="shop-cost" id="cost-${type}">10</span> ☀
         </button>
       `;
-      div.querySelector('button').addEventListener('click', () => this.callbacks.onBuyAgent(type));
+      div.querySelector('button').addEventListener('click', () => this.callbacks.onBuyPlant(type));
       container.appendChild(div);
     }
   }
@@ -105,7 +112,7 @@ export class UI {
           <div class="shop-desc">${cfg.description}</div>
         </div>
         <button class="shop-buy" id="ubuy-${id}">
-          <span class="shop-cost" id="ucost-${id}">0</span> ✦
+          <span class="shop-cost" id="ucost-${id}">0</span> ☀
         </button>
       `;
       div.querySelector('button').addEventListener('click', () => this.callbacks.onBuyUpgrade(id));
@@ -116,15 +123,15 @@ export class UI {
   _buildStatsPanel() {
     this.els.tabStats.innerHTML = `
       <div class="stats-grid">
-        <div class="stat-row"><span>Total Earned</span><span id="stat-total">0</span></div>
-        <div class="stat-row"><span>Total Agents</span><span id="stat-agents">0</span></div>
-        <div class="stat-row"><span>Time Playing</span><span id="stat-time">0s</span></div>
-        <div class="stat-row"><span>Current Era</span><span id="stat-era">Dawn</span></div>
+        <div class="stat-row"><span>Total Harvested</span><span id="stat-total">0</span></div>
+        <div class="stat-row"><span>Total Plants</span><span id="stat-plants">0</span></div>
+        <div class="stat-row"><span>Time Gardening</span><span id="stat-time">0s</span></div>
+        <div class="stat-row"><span>Current Season</span><span id="stat-season">Spring</span></div>
       </div>
       <div class="stats-actions">
         <button id="btn-export" class="action-btn">Export Save</button>
         <button id="btn-import" class="action-btn">Import Save</button>
-        <button id="btn-reset" class="action-btn danger">Reset Game</button>
+        <button id="btn-reset" class="action-btn danger">Reset Garden</button>
       </div>
     `;
   }
@@ -132,24 +139,24 @@ export class UI {
   refresh() {
     const g = this.game;
 
-    this.els.stardust.textContent = formatNum(g.stardust);
+    this.els.sunlight.textContent = formatNum(g.sunlight);
     this.els.rate.textContent = formatNum(g.generationRate) + '/s';
-    this.els.agentCount.textContent = g.totalAgents;
-    this.els.eraName.textContent = g.currentEra.name;
+    this.els.plantCount.textContent = g.totalPlants;
+    this.els.seasonName.textContent = g.currentSeason.name;
 
-    const era = g.currentEra;
-    if (this._lastEra !== era.name) {
-      this._lastEra = era.name;
-      document.getElementById('stats-bar').style.color = era.text;
+    const season = g.currentSeason;
+    if (this._lastSeason !== season.name) {
+      this._lastSeason = season.name;
+      document.getElementById('stats-bar').style.color = season.text;
     }
 
-    for (const [type, cfg] of Object.entries(CONFIG.AGENT_TYPES)) {
-      const item = this.els.tabAgents.querySelector(`[data-type="${type}"]`);
+    for (const [type] of Object.entries(CONFIG.PLANT_TYPES)) {
+      const item = this.els.tabPlants.querySelector(`[data-type="${type}"]`);
       const unlocked = g.isUnlocked(type);
       item.classList.toggle('locked', !unlocked);
-      item.classList.toggle('affordable', unlocked && g.stardust >= g.agentCost(type));
-      document.getElementById(`count-${type}`).textContent = `×${g.agents[type]}`;
-      document.getElementById(`cost-${type}`).textContent = formatNum(g.agentCost(type));
+      item.classList.toggle('affordable', unlocked && g.sunlight >= g.plantCost(type));
+      document.getElementById(`count-${type}`).textContent = `×${g.plants[type]}`;
+      document.getElementById(`cost-${type}`).textContent = formatNum(g.plantCost(type));
     }
 
     for (const [id, cfg] of Object.entries(CONFIG.UPGRADES)) {
@@ -157,21 +164,26 @@ export class UI {
       const btn = document.getElementById(`ubuy-${id}`);
       const item = btn.closest('.shop-item');
       item.classList.toggle('maxed', maxed);
-      item.classList.toggle('affordable', !maxed && g.stardust >= g.upgradeCost(id));
+      item.classList.toggle('affordable', !maxed && g.sunlight >= g.upgradeCost(id));
       document.getElementById(`ulvl-${id}`).textContent = `${g.upgrades[id]}/${cfg.maxLevel}`;
       document.getElementById(`ucost-${id}`).textContent = maxed ? 'MAX' : formatNum(g.upgradeCost(id));
       btn.disabled = maxed;
     }
 
-    document.getElementById('stat-total').textContent = formatNum(g.totalStardust);
-    document.getElementById('stat-agents').textContent = g.totalAgents;
+    document.getElementById('stat-total').textContent = formatNum(g.totalSunlight);
+    document.getElementById('stat-plants').textContent = g.totalPlants;
     document.getElementById('stat-time').textContent = formatTime(Date.now() - g.startTime);
-    document.getElementById('stat-era').textContent = era.name;
+    document.getElementById('stat-season').textContent = season.name;
+  }
+
+  updateMusicBtn(playing) {
+    this.els.musicToggle.textContent = playing ? '⏸ Lofi' : '▶ Lofi';
+    this.els.musicToggle.classList.toggle('playing', playing);
   }
 
   showWelcomeBack(elapsed, earned) {
     this.els.offlineMsg.textContent =
-      `You were away for ${formatTime(elapsed)} and your agents gathered ${formatNum(earned)} stardust!`;
+      `You were away for ${formatTime(elapsed)} and your garden grew ${formatNum(earned)} sunlight!`;
     this.els.modal.classList.add('show');
   }
 
