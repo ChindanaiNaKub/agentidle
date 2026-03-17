@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Idle Agents</title>
+  <meta name="description" content="A calming idle game where autonomous agents grow and thrive while you work.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='80'>✦</text></svg>">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <canvas id="world"></canvas>
+
+  <header id="stats-bar">
+    <div class="stat">
+      <span class="stat-label">Stardust</span>
+      <span class="stat-value" id="stardust-count">0</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Per second</span>
+      <span class="stat-value" id="stardust-rate">0/s</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Agents</span>
+      <span class="stat-value" id="agent-count">1</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Era</span>
+      <span class="stat-value" id="era-name">Dawn</span>
+    </div>
+    <button id="panel-toggle" title="Open shop">☰</button>
+  </header>
+
+  <aside id="panel">
+    <nav id="panel-tabs">
+      <button class="tab active" data-tab="agents">Agents</button>
+      <button class="tab" data-tab="upgrades">Upgrades</button>
+      <button class="tab" data-tab="stats">Stats</button>
+    </nav>
+    <div id="tab-agents" class="tab-content active"></div>
+    <div id="tab-upgrades" class="tab-content"></div>
+    <div id="tab-stats" class="tab-content"></div>
+  </aside>
+
+  <div id="notifications"></div>
+
+  <div id="welcome-modal" class="modal">
+    <div class="modal-content">
+      <h2>Welcome back!</h2>
+      <p id="offline-message"></p>
+      <button id="close-modal">Continue</button>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
